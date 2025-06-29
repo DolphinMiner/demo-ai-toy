@@ -35,6 +35,26 @@ public class AliTtsService {
             .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(50 * 1024 * 1024)) // 50MB
             .build();
 
+    // 阿里云TTS支持的音色列表
+    private static final String[] VOICE_OPTIONS = {
+        "xiaoyun",    // 小云，女声，标准
+        "xiaogang",   // 小刚，男声，标准  
+        "xiaomeng",   // 小萌，女童声，活泼
+        "xiaoxue",    // 小雪，女声，温柔
+        "xiaofeng",   // 小峰，男声，成熟
+        "xiaoli",     // 小丽，女声，甜美
+        "ruoxi",      // 若汐，女声，知性
+        "siqi",       // 思琪，女声，温暖
+        "sijing",     // 思晶，女声，严肃
+        "aijia",      // 艾佳，女声，清晰
+        "aicheng",    // 艾诚，男声，浑厚
+        "aida",       // 艾达，男声，标准
+        "aining",     // 艾宁，女声，甜美
+        "ailun"       // 艾伦，男声，成熟
+    };
+
+    private final java.util.Random random = new java.util.Random();
+
     /**
      * 使用阿里云TTS生成语音
      * @param text 要转换的文本
@@ -44,14 +64,20 @@ public class AliTtsService {
         try {
             // 清理文本但保留必要的空格和标点
             String cleanText = cleanTextForTts(text);
-            log.info("正在调用阿里云TTS生成语音，原始文本长度: {}, 清理后长度: {}", text.length(), cleanText.length());
             
-            // 构建请求体 - 按照阿里云TTS的标准格式
+            // 随机选择音色
+            String selectedVoice = getRandomVoice();
+            
+            log.info("正在调用阿里云TTS生成语音，原始文本长度: {}, 清理后长度: {}, 使用音色: {}", 
+                    text.length(), cleanText.length(), selectedVoice);
+            
+            // 构建请求体 - 按照阿里云TTS的标准格式，添加随机音色
             Map<String, Object> requestBody = Map.of(
                 "appkey", appKey,
                 "text", cleanText,
                 "token", apiKey,
                 "format", "wav"  // 使用wav格式，更兼容
+//                "voice", selectedVoice  // 随机选择的音色
             );
 
             // 直接获取二进制响应数据
@@ -102,6 +128,17 @@ public class AliTtsService {
             log.warn("使用模拟音频数据");
             return generateMockAudio(text);
         }
+    }
+
+    /**
+     * 随机选择一个音色
+     * @return 随机选择的音色名称
+     */
+    private String getRandomVoice() {
+        int index = random.nextInt(VOICE_OPTIONS.length);
+        String selectedVoice = VOICE_OPTIONS[index];
+        log.debug("从{}个音色中随机选择了: {} (索引: {})", VOICE_OPTIONS.length, selectedVoice, index);
+        return selectedVoice;
     }
 
     /**
@@ -266,8 +303,10 @@ public class AliTtsService {
         // 填充静音数据（全零）
         // 音频数据部分已经是0（默认值），代表静音
         
-        log.info("生成模拟WAV音频文件，大小: {} bytes, 时长: {}秒, 文本: {}", 
-                wavFile.length, duration, text.substring(0, Math.min(text.length(), 50)));
+        // 为了日志一致性，也显示一个随机选择的音色
+        String mockVoice = getRandomVoice();
+        log.info("生成模拟WAV音频文件，大小: {} bytes, 时长: {}秒, 模拟音色: {}, 文本: {}", 
+                wavFile.length, duration, mockVoice, text.substring(0, Math.min(text.length(), 50)));
         
         return wavFile;
     }

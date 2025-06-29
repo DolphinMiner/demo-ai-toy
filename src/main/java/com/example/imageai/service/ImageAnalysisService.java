@@ -21,7 +21,7 @@ public class ImageAnalysisService {
      */
     public ImageAnalysisResponse analyzeImageAndGenerateVoice(String imageUrl) {
         try {
-            // 1. 直接使用图片URL调用通义千问分析（更高效，无需下载）
+            // 1. 直接使用图片URL调用通义千问分析
             log.info("正在调用通义千问分析图片URL: {}", imageUrl);
             String description = qianWenService.analyzeImageWithUrl(imageUrl);
             
@@ -34,7 +34,7 @@ public class ImageAnalysisService {
                     .success(true)
                     .description(description)
                     .audioData(java.util.Base64.getEncoder().encodeToString(audioBytes))
-                    .audioFormat("wav")  // 更新为wav格式
+                    .audioFormat("wav")
                     .build();
                     
         } catch (Exception e) {
