@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片分析与语音生成测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .description {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+        .audio-section {
+            margin-top: 15px;
+        }
+        .preview-image {
+            max-width: 300px;
+            max-height: 200px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ Demo-Project</h1>
+        
+        <form id="analysisForm">
+            <div class="input-group">
+                <label for="imageUrl">图片URL:</label>
+                <input type="url" id="imageUrl" name="imageUrl" 
+                       placeholder="请输入图片URL (支持 jpg, png, gif 等格式)"
+                       value="https://example.com/image.jpg">
+            </div>
+            
+            <button type="submit" id="submitBtn">🔍 开始生成</button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <p>⏳ 正在分析图片，请稍候...</p>
+        </div>
+        
+        <div class="result" id="result">
+            <h3>生成结果</h3>
+            <img id="previewImage" class="preview-image" style="display: none;">
+            <div class="description" id="description"></div>
+            
+            <div class="audio-section">
+                <h4>🔊 生成的语音:</h4>
+                <audio id="audioPlayer" controls style="width: 100%; display: none;">
+                    您的浏览器不支持音频播放。
+                </audio>
+                <p id="audioInfo"></p>
+            </div>
+        </div>
+        
+        <div class="result error" id="error">
+            <h3>❌ 错误信息</h3>
+            <p id="errorMessage"></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('analysisForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const imageUrl = document.getElementById('imageUrl').value;
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const error = document.getElementById('error');
+            
+            // 隐藏之前的结果
+            result.style.display = 'none';
+            error.style.display = 'none';
+            
+            // 显示加载状态
+            loading.style.display = 'block';
+            submitBtn.disabled = true;
+            submitBtn.textContent = '分析中...';
+            
+            try {
+                const response = await fetch('/api/v1/image/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        imageUrl: imageUrl
+                    })
+                });
+                
+                const data = await response.json();
+                
+                loading.style.display = 'none';
+                
+                if (data.success) {
+                    // 显示成功结果
+                    document.getElementById('description').textContent = data.description;
+                    
+                    // 显示图片预览
+                    const previewImg = document.getElementById('previewImage');
+                    previewImg.src = imageUrl;
+                    previewImg.style.display = 'block';
+                    
+                    // 处理音频
+                    if (data.audioData) {
+                        const audioPlayer = document.getElementById('audioPlayer');
+                        // 根据返回的音频格式确定MIME类型
+                        const mimeType = data.audioFormat === 'wav' ? 'audio/wav' : 'audio/mpeg';
+                        const audioBlob = base64ToBlob(data.audioData, mimeType);
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        audioPlayer.src = audioUrl;
+                        audioPlayer.style.display = 'block';
+                        
+                        document.getElementById('audioInfo').textContent = 
+                            `音频格式: ${data.audioFormat}, 大小: ${formatBytes(audioBlob.size)}`;
+                    }
+                    
+                    result.style.display = 'block';
+                } else {
+                    // 显示错误
+                    document.getElementById('errorMessage').textContent = data.error || '未知错误';
+                    error.style.display = 'block';
+                }
+            } catch (err) {
+                loading.style.display = 'none';
+                document.getElementById('errorMessage').textContent = '网络错误: ' + err.message;
+                error.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🔍 开始分析';
+            }
+        });
+        
+        // Base64转Blob
+        function base64ToBlob(base64, mimeType) {
+            const byteCharacters = atob(base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            return new Blob([byteArray], {type: mimeType});
+        }
+        
+        // 格式化字节大小
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html> 
